@@ -4,8 +4,14 @@ A self-contained HTML fleet dashboard generated from a CSV snapshot of GPS track
 
 ## How to run
 
+**Standard Python**
 ```bash
 python fleet_dashboard.py
+```
+
+**Using uv**
+```bash
+uv run fleet_dashboard.py
 ```
 
 Requires Python 3.8+ and an internet connection (Leaflet.js is fetched once and embedded into the output file). Opens in any modern browser with no additional setup.
@@ -19,15 +25,11 @@ Requires Python 3.8+ and an internet connection (Leaflet.js is fetched once and 
 
 ### How I used AI to complete this task
 
-I used Claude (an AI assistant) as a collaborative tool throughout the build — not to write the code for me, but to accelerate the parts that would otherwise be slow and error-prone.
+I used Claude as a sounding board while building this. Before writing any code I talked through the main constraint — standard library only, but still needs a real map — and landed on fetching Leaflet.js at generation time and embedding it inline. That kept the output fully self-contained without reinventing a mapping library.
 
-Concretely, I used it to:
+I also used it to pressure-test the CSV before building the parsing logic. It caught a few things I would have hit later anyway: the invalid latitude on TRK034, the out-of-range battery on TRK033, the future timestamp on TRK035, missing fields on TRK031. Knowing about them upfront meant I could handle them properly from the start.
 
-- **Plan the architecture** before writing a line of code. I described the constraints (standard library only, self-contained HTML, map required) and talked through the tradeoff between embedding Leaflet.js via `urllib.request` versus rolling a pure SVG coordinate plot. Embedding Leaflet won because it gives a real interactive map with almost no extra code.
-- **Spot edge cases in the CSV** that I might have skimmed past — the invalid latitude on TRK034, the out-of-range battery on TRK033, the future timestamp on TRK035, and the missing fields on TRK031. Having those flagged early meant the data-cleaning logic was built in from the start rather than bolted on.
-- **Draft and iterate on the HTML/CSS layout.** I described the visual structure I wanted (header, summary cards, legend, map, table) and refined the output until it matched. This was faster than writing raw CSS from scratch and then tweaking by hand.
-
-I reviewed every output, tested the script end-to-end, and made deliberate choices about what to keep or change. AI handled the mechanical parts; judgement calls (colour logic, edge-case handling, what to omit) stayed with me.
+For the HTML and CSS I used it to iterate quickly on layout rather than writing everything from scratch. The structure I had in my head (header, summary cards, map, table) came together faster that way, and I adjusted the output as I went.
 
 ---
 
@@ -41,14 +43,13 @@ I reviewed every output, tested the script end-to-end, and made deliberate choic
 | Offline | Red | `#ef4444` |
 | Maintenance | Grey | `#6b7280` |
 
-The palette is built on **traffic-light intuition** — green means fine, amber means watch it, red means act now. That mapping is already burned into most people's heads, so a fleet manager can read the map at a glance without consulting a legend.
+I went with a traffic-light base — green is fine, amber needs watching, red needs action. It's intuitive enough that a fleet manager can read the map without looking at the legend.
 
-Two extra states sit within that range rather than outside it:
+Low battery gets orange rather than sharing amber with idle because the two need to be visually separable. A vehicle sitting idle is a minor concern; one about to die is more pressing, so it gets a colour closer to red.
 
-- **Orange for low battery** — sits between amber and red because it is urgent but not yet a crisis. A driver can still get to a charging point; the vehicle has not gone dark. Giving it its own hue (rather than sharing amber with idle) means the two concerns are visually separable even when markers overlap.
-- **Grey for maintenance** — deliberately colourless. A vehicle in planned maintenance is not an alert; it is an expected absence. Grey removes it from the urgency hierarchy without hiding it from the map entirely.
+Maintenance is grey because it's not an alert at all — it's a planned state. Removing it from the colour hierarchy means it doesn't draw attention away from vehicles that actually need it.
 
-Unknown or unexpected status values fall back to slate (`#94a3b8`) — pale enough to signal "something is off with this record" without implying the severity of red.
+Anything with an unrecognised status falls back to slate so it's visible but clearly not in the normal range.
 
 ---
 
@@ -56,6 +57,4 @@ Unknown or unexpected status values fall back to slate (`#94a3b8`) — pale enou
 
 **Real-time auto-refresh.**
 
-The dashboard is currently a static snapshot — the moment a fleet manager opens it, the data starts going stale. In a real product, the page would poll a backend endpoint every 30–60 seconds (or hold open a WebSocket connection) and update the map markers and table rows in place, without a full reload.
-
-This matters because the core value of a GPS fleet tool is *live awareness* — knowing a driver just went offline, or a battery just hit critical, the moment it happens rather than whenever someone remembers to regenerate the file. Every element on this dashboard (the map, the status badges, the "last seen" column) was designed with real-time in mind. Without the refresh loop, it is a report; with it, it becomes a genuine operational tool.
+Right now the dashboard is a snapshot — it's stale the moment you open it. In a real product the page would poll a backend every 30–60 seconds and update the markers and table in place. The whole point of a live fleet tool is knowing when something goes wrong as it happens, not the next time someone reruns a script.

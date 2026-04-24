@@ -21,7 +21,6 @@ maintenance  Grey      #6b7280   Intentionally offline for service – no alert 
 The palette follows traffic-light intuition (green / amber / red) with two
 extra states kept visually distinct by hue. All colours pass WCAG AA contrast
 on a white background when used in the status badge.
-
 Edge-case handling
 ------------------
 - Missing name      → falls back to device_id.
